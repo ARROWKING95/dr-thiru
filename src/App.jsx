@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { HospitalProvider } from './context/HospitalContext';
 
@@ -48,7 +48,7 @@ function NotFoundPage() {
 
 export function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <AuthProvider>
         <HospitalProvider>
           <Routes>
@@ -125,7 +125,7 @@ export function App() {
           </Routes>
         </HospitalProvider>
       </AuthProvider>
-    </BrowserRouter>
+    </Router>
   );
 }
 
