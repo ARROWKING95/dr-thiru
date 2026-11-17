@@ -1,6 +1,6 @@
 # MedGuard - Healthcare Record Error Detection System
 
-A high-fidelity clone of **MedGuard** (`https://medicheck-guardian.lovable.app/`).
+A high-fidelity clone of
 
 MedGuard is a real-time clinical decision support and healthcare record error detection platform designed for hospitals, clinical pharmacists, and physicians to detect:
 1. **Prescribing Errors** (Untreated conditions, contraindications, indication mismatches, unknown drugs)
