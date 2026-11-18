@@ -1,13 +1,17 @@
-# MedGuard - Healthcare Record Error Detection System
+# MedGuard - Healthcare Record Error Detection System (MERN Stack)
 
-A high-fidelity clone of
+A full-stack **MERN** (MongoDB, Express.js, React, Node.js) clinical decision support and healthcare record error detection platform designed for hospitals, clinical pharmacists, and physicians. Based on MedGuard.
 
-MedGuard is a real-time clinical decision support and healthcare record error detection platform designed for hospitals, clinical pharmacists, and physicians to detect:
-1. **Prescribing Errors** (Untreated conditions, contraindications, indication mismatches, unknown drugs)
-2. **Transcribing Errors** (Look-Alike / Sound-Alike [LASA] drug confusion, misspelling corrections)
-3. **Dosage Errors** (Maximum adult daily dose exceedance, subtherapeutic dosing, pediatric mg/kg calculations, geriatric adjustments, renal impairment dose reductions)
-4. **Administration Errors** (Wrong route, frequency concerns, wrong-patient chart assignment mismatch)
-5. **Drug Interactions** (Drug–Drug with severity rating, mechanism & management; Drug–Food; Drug–Disease interactions)
+---
+
+## 🏗️ Architecture & Technology Stack
+
+| Layer | Technology | Responsibilities |
+| :--- | :--- | :--- |
+| **M** (MongoDB) | MongoDB + Mongoose | Schemas and collections for Patients, Inpatients, Outpatients, Pharmacy Dispenses, Lab Orders, Inventory Stock, Users, and Audit Logs. |
+| **E** (Express.js) | Express 5 + REST API | Modular controllers & routes (`/api/auth`, `/api/cases`, `/api/opd`, `/api/lab`, `/api/inventory`, `/api/pharmacy`, `/api/clinical`, `/api/mrd`). |
+| **R** (React 18) | React + Tailwind CSS + Lucide | Fast responsive clinical station, real-time error detection panel, 28 risk calculators, printable case sheets. |
+| **N** (Node.js) | Node.js Runtime | Concurrently runs Express API (port 5000) and Vite Dev Server (port 5173) with automated proxying. |
 
 ---
 
@@ -48,27 +52,60 @@ MedGuard is a real-time clinical decision support and healthcare record error de
 
 ---
 
-## 🚀 Getting Started
+## ⚡ Quick Start (1-Click)
 
-### 1. Development Server
+### 1. Start Both Backend & Frontend (Full MERN Stack)
+Double-click **`start.bat`** or run:
 ```bash
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+- **React Frontend**: [http://localhost:5173](http://localhost:5173)
+- **Express Backend API**: [http://localhost:5000/api/health](http://localhost:5000/api/health)
 
-### 2. Production Build
+### 2. Seed MongoDB Demo Hospital Data
+Double-click **`seed.bat`** or run:
 ```bash
-npm run build
-npm run preview
+npm run seed
+```
+
+### 3. Push to GitHub
+Double-click **`push.bat`** or run:
+```bash
+npm run push
 ```
 
 ---
 
-## 🔑 Default Accounts (1-Click Login Available)
+## 📡 REST API Reference
 
-| Account | Username | Password | Role / Access |
-|---|---|---|---|
-| **Dr. Thirumalai (MRN Admin)** | `dr.thirumalai` | `password123` | Full access to all modules including MRD Archive & Hospital Administration |
-| **Clinical Pharmacist** | `pharmacist` | `password123` | IPD, OPD, Lab, Inventory, and Pharmacy Dispensing |
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/health` | System status, MongoDB connectivity, and uptime |
+| `GET` | `/api/auth/users` | List hospital users |
+| `POST` | `/api/auth/login` | Authenticate physician or pharmacist |
+| `GET` | `/api/cases` | Fetch inpatient cases (filter by `status`, `department`) |
+| `POST` | `/api/cases` | Create or update inpatient clinical case |
+| `POST` | `/api/cases/:patientId/discharge` | Discharge patient record to MRD archive |
+| `GET` | `/api/opd` | List outpatient consultations |
+| `POST` | `/api/opd` | Create outpatient consultation and prescription |
+| `GET` | `/api/lab` | List diagnostic lab requisitions |
+| `POST` | `/api/lab` | Place lab investigation order |
+| `GET` | `/api/inventory` | List pharmacy inventory ledger |
+| `POST` | `/api/inventory/:id/adjust` | Quick-adjust stock procured/issued (+50, +500) |
+| `POST` | `/api/pharmacy/dispense` | Record prescription dispensing |
+| `POST` | `/api/pharmacy/dispense-all` | Batch dispense all queued prescriptions |
+| `POST` | `/api/clinical/check-errors` | Server-side real-time prescription validation engine |
+| `POST` | `/api/clinical/suggest-diagnosis` | AI / symptom diagnostic suggestions |
+| `GET` | `/api/mrd/stats` | Aggregated hospital KPI metrics |
+| `GET` | `/api/mrd/export` | Complete legal hospital archive JSON export (`dr.thirumalai`) |
 
-*(A 1-Click quick login switcher is available directly on the login screen and top navigation bar.)*
+---
+
+## 🔑 Default Accounts
+
+- **Physician / MRD Admin**:
+  - Username: `dr.thirumalai`
+  - Password: `password123`
+- **Clinical Pharmacist**:
+  - Username: `pharmacist`
+  - Password: `password123`

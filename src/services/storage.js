@@ -1,4 +1,5 @@
-// Persistent Local Storage Data Store with initial demo data
+// Persistent Dual-Engine Data Store (MongoDB REST API + LocalStorage Cache)
+import { api } from './api.js';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'medguard_current_user',
@@ -22,7 +23,8 @@ const DEFAULT_USERS = [
     profession: 'doctor',
     institution: 'City General Medical Center',
     pharmacistRegId: 'MRD-ADMIN-01',
-    password: 'password123'
+    password: 'password123',
+    role: 'doctor'
   },
   {
     id: 'user_pharmacist',
@@ -33,7 +35,8 @@ const DEFAULT_USERS = [
     profession: 'pharmacist',
     institution: 'Central Clinical Pharmacy',
     pharmacistRegId: 'PHARM-8942',
-    password: 'password123'
+    password: 'password123',
+    role: 'pharmacist'
   }
 ];
 
@@ -357,6 +360,7 @@ const DEFAULT_INVENTORY = [
 class StorageService {
   constructor() {
     this.init();
+    this.syncFromBackend();
   }
 
   init() {
@@ -383,6 +387,33 @@ class StorageService {
     }
   }
 
+  // Background fetch to sync from MongoDB backend if reachable
+  async syncFromBackend() {
+    try {
+      const [casesRes, opdRes, labRes, invRes] = await Promise.allSettled([
+        api.cases.getAll(),
+        api.opd.getAll(),
+        api.lab.getAll(),
+        api.inventory.getAll()
+      ]);
+
+      if (casesRes.status === 'fulfilled' && casesRes.value?.cases) {
+        localStorage.setItem(STORAGE_KEYS.CASES, JSON.stringify(casesRes.value.cases));
+      }
+      if (opdRes.status === 'fulfilled' && opdRes.value?.visits) {
+        localStorage.setItem(STORAGE_KEYS.OPD_VISITS, JSON.stringify(opdRes.value.visits));
+      }
+      if (labRes.status === 'fulfilled' && labRes.value?.orders) {
+        localStorage.setItem(STORAGE_KEYS.LAB_ORDERS, JSON.stringify(labRes.value.orders));
+      }
+      if (invRes.status === 'fulfilled' && invRes.value?.items) {
+        localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(invRes.value.items));
+      }
+    } catch {
+      // Offline or backend starting, fallback to local storage safely
+    }
+  }
+
   // --- Auth & Users ---
   getUsers() {
     return JSON.parse(localStorage.getItem(STORAGE_KEYS.USERS) || '[]');
@@ -392,6 +423,7 @@ class StorageService {
     const users = this.getUsers();
     users.push(user);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    api.auth.register(user).catch(() => {});
   }
 
   getCurrentUser() {
@@ -421,6 +453,7 @@ class StorageService {
     const list = this.getHospitals();
     list.push(hosp);
     localStorage.setItem(STORAGE_KEYS.HOSPITALS, JSON.stringify(list));
+    api.hospitals.save(hosp).catch(() => {});
     return hosp;
   }
 
@@ -450,13 +483,21 @@ class StorageService {
   saveCase(caseData) {
     const cases = this.getCases();
     const idx = cases.findIndex(c => c.patientId === caseData.patientId);
+    const enriched = { ...caseData, savedAt: new Date().toLocaleString() };
+
     if (idx >= 0) {
-      cases[idx] = { ...cases[idx], ...caseData, savedAt: new Date().toLocaleString() };
+      cases[idx] = { ...cases[idx], ...enriched };
     } else {
-      cases.unshift({ ...caseData, savedAt: new Date().toLocaleString() });
+      cases.unshift(enriched);
     }
     localStorage.setItem(STORAGE_KEYS.CASES, JSON.stringify(cases));
-    return caseData;
+
+    // Sync to MERN MongoDB Backend
+    api.cases.save(enriched).catch(err => {
+      console.warn('Backend sync deferred, saved to local cache:', err.message);
+    });
+
+    return enriched;
   }
 
   dischargeCase(patientId, dischargeDetails = {}) {
@@ -467,6 +508,9 @@ class StorageService {
       target.dischargedAt = new Date().toISOString();
       target.discharge = dischargeDetails;
       localStorage.setItem(STORAGE_KEYS.CASES, JSON.stringify(cases));
+
+      // Sync to MERN MongoDB Backend
+      api.cases.discharge(patientId, dischargeDetails).catch(() => {});
     }
   }
 
@@ -484,6 +528,9 @@ class StorageService {
     };
     visits.unshift(newVisit);
     localStorage.setItem(STORAGE_KEYS.OPD_VISITS, JSON.stringify(visits));
+
+    // Sync to MERN MongoDB Backend
+    api.opd.save(newVisit).catch(() => {});
     return newVisit;
   }
 
@@ -495,6 +542,7 @@ class StorageService {
       if (med) {
         Object.assign(med, patch);
         localStorage.setItem(STORAGE_KEYS.OPD_VISITS, JSON.stringify(visits));
+        api.opd.patchMedication(visitId, medicationId, patch).catch(() => {});
       }
     }
   }
@@ -513,6 +561,9 @@ class StorageService {
     };
     orders.unshift(newOrder);
     localStorage.setItem(STORAGE_KEYS.LAB_ORDERS, JSON.stringify(orders));
+
+    // Sync to MERN MongoDB Backend
+    api.lab.save(newOrder).catch(() => {});
     return newOrder;
   }
 
@@ -529,6 +580,9 @@ class StorageService {
     };
     inv.unshift(newItem);
     localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inv));
+
+    // Sync to MERN MongoDB Backend
+    api.inventory.save(newItem).catch(() => {});
     return newItem;
   }
 
@@ -538,12 +592,18 @@ class StorageService {
     if (item) {
       Object.assign(item, patch);
       localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inv));
+
+      // Sync to MERN MongoDB Backend
+      api.inventory.update(id, patch).catch(() => {});
     }
   }
 
   deleteInventoryItem(id) {
     const inv = this.getInventory().filter(i => i.id !== id);
     localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inv));
+
+    // Sync to MERN MongoDB Backend
+    api.inventory.delete(id).catch(() => {});
   }
 
   // --- Pharmacy Dispenses ---
@@ -553,12 +613,16 @@ class StorageService {
 
   recordDispense(dispense) {
     const dispenses = this.getDispenses();
-    dispenses.unshift({
+    const newDisp = {
       ...dispense,
       id: 'disp_' + Date.now(),
       dispensed_at: new Date().toISOString()
-    });
+    };
+    dispenses.unshift(newDisp);
     localStorage.setItem(STORAGE_KEYS.DISPENSES, JSON.stringify(dispenses));
+
+    // Sync to MERN MongoDB Backend
+    api.pharmacy.dispense(newDisp).catch(() => {});
   }
 }
 
